@@ -53,8 +53,11 @@ width= Config.gameWidth, height= Config.gameHeight) {
     }
 
     override fun onDisplay() {
-        views.forEach { view ->
-            view.draw()
+        //println("onDisplay thread: ${Thread.currentThread().name}")
+        synchronized(views) {
+            views.forEach { view ->
+                view.draw()
+            }
         }
         if(gameOver)
             Painter.drawImage("img/over.gif",Config.gameWidth/2,Config.gameHeight/2)
@@ -70,20 +73,23 @@ width= Config.gameWidth, height= Config.gameHeight) {
                 KeyCode.A->tank.move(Direction.LEFT)
                 KeyCode.S->tank.move(Direction.DOWN)
                 KeyCode.D->tank.move(Direction.RIGHT)
-                KeyCode.SPACE->views.add(tank.shoot())
+                KeyCode.SPACE-> synchronized(views) { views.add(tank.shoot()) }
             }
     }
 
     override fun onRefresh() {
+        //println("onRefresh thread: ${Thread.currentThread().name}")
         views.filter{it is Destroyable }.forEach {
             it as Destroyable
             if(it.judgeDestroy()) {
-                views.remove(it)
-                if(it is EnemyTank)
-                    tankNum--
-                val des=it.showDestroy()
-                des?.let{
-                    views.addAll(des)
+                synchronized(views) {
+                    views.remove(it)
+                    if (it is EnemyTank)
+                        tankNum--
+                    val des = it.showDestroy()
+                    des?.let {
+                        views.addAll(des)
+                    }
                 }
             }
         }
@@ -124,7 +130,9 @@ width= Config.gameWidth, height= Config.gameHeight) {
                     attacker.notifyAttack(defender)
                     val bombView=defender.notifySuffer(attacker)
                     bombView?.let{
-                        views.addAll(bombView)
+                        synchronized(views) {
+                            views.addAll(bombView)
+                        }
                     }
                     return@SufferTag
                 }
@@ -137,7 +145,9 @@ width= Config.gameWidth, height= Config.gameHeight) {
                 it as AutoShot
                 val shot = it.autoShoot()
                 shot?.let {
-                    views.add(shot)
+                    synchronized(views) {
+                        views.add(shot)
+                    }
                 }
             }
         }
@@ -151,7 +161,14 @@ width= Config.gameWidth, height= Config.gameHeight) {
         if(views.filter {it is EnemyTank}.size<tankOnScreen){
             if(tankNum-views.filter { it is EnemyTank }.size>0)
             //views.add(NewBorn(enemyTankBorn[index%tankOnScreen].first,enemyTankBorn[index%tankOnScreen].second))
-            views.add(EnemyTank(enemyTankBorn[index%tankOnScreen].first,enemyTankBorn[index%tankOnScreen].second))
+                synchronized(views) {
+                    views.add(
+                        EnemyTank(
+                            enemyTankBorn[index % tankOnScreen].first,
+                            enemyTankBorn[index % tankOnScreen].second
+                        )
+                    )
+                }
             index++
         }
 
